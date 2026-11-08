@@ -1,0 +1,56 @@
+/** v3.0 · «Практикумы СферумФокус»: контракты /api/v1 (app/practicum_routes.py). Только то, что реально приходит с сервера. */
+export type SubjectRef = { key: string; title: string; grade: number; studied?: boolean };
+export type SubjectsOverview = { grade: number; subjects: { key: string; title: string; practicums: number; topics: number }[] };
+export type TopicOption = { topic_id: string; title: string };
+export type TopicInfo = { topic_id: string; subject: string; subject_title: string; grade: number; title: string; fgos_ref: string;
+  default_mechanic?: string; skills: { key: string; title: string }[]; paragraph_numbers?: number[] };
+export type Skill = { skill_key: string; title: string; mastery_percent: number | null; status: string; verified_actions: number; correct_actions: number };
+export type SkillMap = { topic_id: string; topic_title: string; subject: string; grade: number; skills: Skill[]; has_data: boolean; basis: string };
+export type Recommendation = { kind: string; practicum_id?: string | null; title?: string | null; skill_key?: string | null; text: string; reason?: string | null } | null;
+export type HubCard = { kind: "quiz" | "practicum"; title: string; badge: string; text: string; available: boolean;
+  questions?: number; minutes?: number; count?: number; count_scope?: string; reason: string | null };
+export type PathLevel = { level: string; title: string; detail: string; state: string };
+export type Hub = { subject: SubjectRef; current_topic: TopicInfo | null; needs_topic_clarification: boolean;
+  topic_source: { match: string; reason: string; paragraph: number | null }; topic_options: TopicOption[]; cards: HubCard[];
+  skill_map: SkillMap | null; recommendation: Recommendation; curriculum_path: PathLevel[] };
+
+export type ProgressStatus = { state: string; label: string; step: number; total: number };
+export type CatalogItem = { practicum_id: string; title: string; subject: SubjectRef; topic: { topic_id: string; title: string };
+  learning_goal: string; summary: string; difficulty: string; difficulty_key: string; duration_minutes: number; format_type: string;
+  curriculum_match: { label: string; fgos_ref: string; current_topic: boolean; recommended: boolean }; progress_status: ProgressStatus;
+  badges: string[]; mechanic_kind: string; model: LabModel };
+export type Catalog = { items: CatalogItem[]; total: number; facets: { difficulty: Record<string, number>; format_type: Record<string, number> };
+  filters: Record<string, unknown>; current_topic: TopicInfo | null; needs_topic_clarification: boolean; message: string | null;
+  other_grades: { grade: number; count: number }[] };
+
+export type LabModel = "quadratic" | "linear" | "scales" | "area" | "ohm" | "molecule" | "climate" | "order" | "classify" | "robot";
+export type LabState = Record<string, unknown>;
+export type LabConfig = { model: LabModel; initial: LabState; [k: string]: unknown };
+export type StageKind = "intro" | "warmup" | "exploration" | "action_check" | "progressive_hints" | "error_explanation" | "final_challenge" | "summary_and_next";
+export type AnswerField = { field: string; label: string; value?: unknown };
+export type StageView = { index: number; kind: StageKind; title: string; step: number; steps_total: number; step_title: string;
+  passed: boolean; attempts: number; skipped: boolean; skill: { key: string; title: string } | null; can_advance: boolean; can_skip?: boolean;
+  body?: string; real_life?: string; exam?: string; case?: string;
+  question?: { text: string; options: string[]; correct?: number; explain?: string };
+  lab?: LabConfig; state?: LabState; readouts?: Record<string, unknown>; task?: string; answers?: AnswerField[];
+  hints?: { allowed: boolean; total: number; shown: string[] }; observe?: string;
+  learned?: string[]; next_step?: { text?: string; practicum_id?: string; title?: string } | string | null };
+export type Session = { session_id: string; practicum: CatalogItem; status: string; progress: ProgressStatus; stage: StageView;
+  stages: { index: number; kind: StageKind; title: string; step: number; passed: boolean; skipped: boolean; current: boolean }[];
+  steps: { n: number; title: string }[]; principles: Record<string, string>; revision: number; attempt_no: number;
+  mastery_change?: { skill_key: string; title: string; before: number | null; after: number | null }[]; skill_map?: SkillMap; next?: Recommendation };
+export type Feedback = { principle: string; principle_title: string; kind: string; message: string };
+export type ActionResult = { result: { ok: boolean; feedback?: Feedback[]; state?: LabState; readouts?: Record<string, unknown>; marks?: Record<string, boolean>;
+  hint_available?: boolean; can_skip?: boolean; hint?: string; level?: number; total?: number; explain?: string; correct?: number }; session: Session };
+export type ActionBody = { type: "advance" | "answer" | "check" | "hint" | "skip" | "restart"; stage_index?: number; lab_state?: LabState;
+  answers?: Record<string, unknown>; selected_answer?: number };
+export type SavedState = { stage_index: number; state: LabState; readouts: Record<string, unknown>; revision: number };
+
+export type QuizQuestion = { id: string; kind: "single_choice" | "multi_choice" | "short_answer" | "matching" | "ordering" | "diagram_question";
+  text: string; options?: string[]; left?: string[]; right?: string[]; items?: string[]; diagram?: { model: LabModel; state: LabState } };
+export type QuizStart = { attempt_id: string; topic: TopicInfo; title: string; badge: string; questions: QuizQuestion[]; total: number };
+export type QuizResult = { attempt_id: string; topic: TopicInfo; score: number; max_score: number; score_label: string;
+  questions: { id: string; correct: boolean; explain: string; answer: string; skill: { key: string; title: string } | null }[];
+  gaps: { skill_key: string; title: string; wrong: number; total: number; mastery_percent: number | null }[]; skill_map: SkillMap;
+  cta: { label: string; practicum_id: string; title: string } | null; message: string | null };
+export type TutorHelp = { reply: string; source: "ai" | "deterministic"; notice: string | null };

@@ -1,0 +1,48 @@
+import {useEffect,useRef,useState} from 'preact/hooks';
+import {connectionRequest} from '../lib/api';
+import {handoffExternalUrl} from '../lib/handoff';
+import {hostAuthLinkAvailable,openAuthLink} from '../lib/auth_window';
+import {TwoFactorModal} from './TwoFactorModal';
+import {schoolOAuthCard,oauthTerminal,type School} from '../lib/school';
+type Mode='sandbox'|'oauth'|'bridge';
+type Flow={tx_id?:string;authorize_url?:string;challenge_id:string;status:string;demo:boolean;expires_in:number;resend_in?:number;authorization_url?:string;bridge_secret?:string;link_code?:string;bookmarklet?:string;learner?:{name:string;class_name:string;portal:string}};
+const external=openAuthLink;
+export function EsiaConnect({school,onConnected,method='gosuslugi_esia'}:{school:School;onConnected:()=>void;method?:'gosuslugi_esia'|'moya_shkola'}){
+ const [caps,setCaps]=useState<{oauth_configured:boolean;sandbox_enabled:boolean;bridge_enabled?:boolean}>({oauth_configured:false,sandbox_enabled:false,bridge_enabled:false}),[flow,setFlow]=useState<Flow|null>(null),[mode,setMode]=useState<Mode>('oauth'),[message,setMessage]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[waiting,setWaiting]=useState(false),[remaining,setRemaining]=useState(0),[resendIn,setResendIn]=useState(60),[manual,setManual]=useState('');
+ const deadline=useRef(0),resendAt=useRef(0),alive=useRef(true),lock=useRef(false);
+ const call=(path:string,body?:unknown)=>connectionRequest('/api/v1/diary/auth/'+path,body);
+ useEffect(()=>{alive.current=true;void call('capabilities?method='+method).then(setCaps).catch(()=>{});return()=>{alive.current=false;setManual('');};},[school.school_uid,method]);
+ useEffect(()=>{if(!flow)return;let active=true,polling=false;const controller=new AbortController();
+  const poll=()=>{if(!active||polling||lock.current)return;
+   setRemaining(Math.max(0,Math.ceil((deadline.current-Date.now())/1000)));setResendIn(Math.max(0,Math.ceil((resendAt.current-Date.now())/1000)));
+   if(Date.now()>=deadline.current){if(flow.tx_id){setWaiting(false);setFlow(null);setError('Время входа истекло. Начните заново.');}return;}
+   polling=true;const path=flow.tx_id?'/api/v1/diary/oauth/status?tx_id='+encodeURIComponent(flow.tx_id):'/api/v1/diary/auth/status/'+encodeURIComponent(flow.challenge_id);
+   void connectionRequest(path,undefined,controller.signal).then(d=>{if(!active||!alive.current)return;setFlow(f=>f?{...f,...d}:f);
+    if(d.status==='awaiting_confirmation')setWaiting(true);
+    if(d.status==='connected'){setWaiting(false);setFlow(null);setManual('');setMessage(d.demo?'Тестовый цикл завершён. Реальный дневник не подключался.':'Дневник подключён. Старые оценки не будут отправлены.');if(!d.demo)onConnected();}
+    else if(flow.tx_id&&oauthTerminal(d.status)){setWaiting(false);setFlow(null);setError(d.status==='expired'?'Время входа истекло. Начните заново.':d.status==='cancelled'?'Вход отменён. Можно начать заново.':'Шлюз не завершил подключение. Начните вход заново.');}
+   }).catch(e=>{if(active&&!controller.signal.aborted)setError(e.message);}).finally(()=>{polling=false;});
+  };const visible=()=>{if(document.visibilityState==='visible')poll();};document.addEventListener('visibilitychange',visible);const timer=setInterval(poll,2000);
+  return()=>{active=false;controller.abort();clearInterval(timer);document.removeEventListener('visibilitychange',visible);};
+ },[flow?.challenge_id,flow?.tx_id]);
+ const act=async(fn:()=>Promise<void>)=>{if(lock.current)return;lock.current=true;setBusy(true);setError('');try{await fn();}catch(e){if(alive.current)setError(e instanceof Error?e.message:'Не удалось выполнить привязку');}finally{lock.current=false;if(alive.current)setBusy(false);}};
+ const start=(m:Mode)=>{if(lock.current)return;const popup=m!=='bridge'&&!hostAuthLinkAvailable()?window.open('about:blank','_blank'):null;if(popup)popup.opener=null;
+  void act(async()=>{let started:Flow|undefined;try{
+   const d:Flow=m==='oauth'?await connectionRequest('/api/v1/diary/oauth/start',schoolOAuthCard(school,method)):await call(m==='bridge'?'bridge/start':'esia/start',m==='bridge'?{}:{mode:m});started=d;
+   const url=d.authorize_url||d.authorization_url;
+   if(url){const safe=handoffExternalUrl(url,location.origin);if(popup&&!popup.closed)popup.location.replace(safe);else if(hostAuthLinkAvailable())external(safe);else throw new Error('Разрешите открытие окна входа и повторите.');}
+   if(!alive.current)return;deadline.current=Date.now()+d.expires_in*1000;resendAt.current=Date.now()+60000;setResendIn(60);setRemaining(d.expires_in);setMode(m);setFlow({...d,authorization_url:url});setWaiting(m!=='bridge');setManual('');
+  }catch(e){popup?.close();if(started?.tx_id)void connectionRequest('/api/v1/diary/oauth/cancel',{tx_id:started.tx_id}).catch(()=>{});throw e;}});
+ };
+ const cancel=()=>{const previous=flow;setWaiting(false);setFlow(null);setManual('');setError('');if(previous?.tx_id)void connectionRequest('/api/v1/diary/oauth/cancel',{tx_id:previous.tx_id}).catch(()=>{});else if(previous?.challenge_id)void call('cancel',{challenge_id:previous.challenge_id}).catch(()=>{});};
+ return <div class="esia-connect"><h4>{method==='moya_shkola'?'Вход через Мою школу':'Вход через Госуслуги'}</h4><p class="school-help f-b f-2 mt-3 mb-4">Пароль и настоящий код ЕСИА вводятся только на официальном сайте. Приложение получает разрешённую сессию СГО.</p>
+  {caps.oauth_configured?<button class="btn btn-primary btn-block" disabled={busy} onClick={()=>start('oauth')}>Продолжить на официальном шлюзе</button>:<p class="school-empty f-b b-card mt-4 mb-4">Региональный шлюз ещё не настроен для этого приложения. Доступен ручной режим; пароль Госуслуг не запрашивается.</p>}
+  {/* v2.3.2 (D3): привязка своей сессии — только в тестовой среде с включённым флагом (сервер: bridge_enabled) */}
+  {caps.bridge_enabled&&<section class="school-service l-v b-card mt-4 mb-4"><h4>Привязать открытую сессию дневника</h4><p class="school-help f-b f-2 mt-3 mb-4">Только ваша сессия выбранного СГО. Сначала войдите на портале в системном браузере. Перед подключением подтвердите ученика здесь.</p><button class="btn btn-secondary btn-block" onClick={()=>external(school.base_url)}>1. Открыть портал школы и войти через Госуслуги</button><button class="btn btn-secondary btn-block" disabled={busy} onClick={()=>start('bridge')}>2. Создать одноразовую привязку</button>
+  {flow&&mode==='bridge'&&<><p>Код: <strong>{flow.link_code}</strong> · осталось {remaining} сек.</p><p class="school-help f-b f-2 mt-3 mb-4">Код без секретного ключа недостаточен. Скопируйте команду в собственную закладку браузера и запустите её только на выбранном портале СГО. Не публикуйте команду.</p><label class="field-label" htmlFor="bridge-bookmarklet">Одноразовая команда собственной сессии</label><textarea id="bridge-bookmarklet" class="input" readOnly value={flow.bookmarklet||''}/><button class="btn btn-secondary btn-block" onClick={()=>void navigator.clipboard?.writeText(flow.bookmarklet||'').catch(()=>setError('Выделите и скопируйте команду вручную.'))}>Скопировать команду привязки</button><p class="school-help f-b f-2 mt-3 mb-4">HttpOnly, CSP и IP-привязка не обходятся. Если команда заблокирована или at недоступен, нужен официальный шлюз.</p><details><summary>Ввести собственный at вручную</summary><p class="school-help f-b f-2 mt-3 mb-4">Это секрет СГО, не Госуслуг. Не присылайте его в чат. Если сервер требует HttpOnly cookie или привязывает сессию к IP, один at не сработает.</p><label htmlFor="bridge-at" class="field-label">Токен at собственной сессии СГО</label><input id="bridge-at" class="input" type="password" autoComplete="off" value={manual} maxLength={8192} onInput={e=>setManual(e.currentTarget.value)}/><button class="btn btn-secondary btn-block" disabled={busy||!manual||remaining<=0} onClick={()=>void act(async()=>{try{await call('bridge-bind',{challenge_id:flow.challenge_id,bridge_secret:flow.bridge_secret,link_code:flow.link_code,access_token:manual,cookies:[]});setWaiting(true);}finally{setManual('');}})}>Проверить собственную сессию</button></details><button class="btn btn-secondary btn-block" onClick={()=>setWaiting(true)}>Проверить ученика и подтвердить</button><button class="btn btn-ghost btn-block" onClick={cancel}>Отменить привязку</button></>}
+  </section>}
+  {caps.sandbox_enabled&&<button class="btn btn-secondary btn-block" disabled={busy} onClick={()=>start('sandbox')}>Sandbox · проверить тестовый 2FA без реального дневника</button>}
+  <p class="school-feedback f-b f-2 mt-4" role="status">{message}</p><p role="alert">{error}</p>{error&&!flow&&caps.oauth_configured&&<button class="btn btn-secondary btn-block" disabled={busy} onClick={()=>start('oauth')}>Повторить попытку</button>}
+  <TwoFactorModal resendIn={resendIn} onResend={()=>void act(async()=>{if(flow){const d=await call('resend-2fa',{challenge_id:flow.challenge_id});resendAt.current=Date.now()+60000;setResendIn(60);setFlow(f=>f?{...f,...d}:f);}})} open={waiting} mode={mode} status={flow?.status||''} expires={remaining} error={error} learner={flow?.learner} onClose={cancel} onReopen={()=>{if(flow?.authorization_url)external(flow.authorization_url);}} onVerify={code=>void act(async()=>{if(flow){const d=await call('esia/verify-2fa',{challenge_id:flow.challenge_id,code});setFlow(f=>f?{...f,...d}:f);if(d.status==='connected'){setWaiting(false);setFlow(null);setMessage('Тестовый цикл завершён. Реальный дневник не подключался.');}}})} onConfirm={()=>void act(async()=>{if(flow){await call('bridge/confirm',{challenge_id:flow.challenge_id});setWaiting(false);setFlow(null);onConnected();}})}/>
+ </div>;
+}

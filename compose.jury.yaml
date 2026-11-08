@@ -1,0 +1,28 @@
+name: sferumfocus-jury
+services:
+  app:
+    image: sferumfocus:jury
+    build:
+      context: .
+      target: runtime
+    env_file:
+      - jury.env
+    ports:
+      - "127.0.0.1:${JURY_PORT:-8001}:8000"
+    volumes:
+      - jury_data:/code/data
+    networks:
+      - jury_local
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 1536m
+    cpus: 2.0
+    restart: "no"
+volumes:
+  jury_data:
+networks:
+  jury_local:
+    internal: true

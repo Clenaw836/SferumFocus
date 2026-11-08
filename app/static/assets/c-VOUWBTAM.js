@@ -1,0 +1,1 @@
+import{o as i}from"./c-W3DZUSMG.js";function l({label:s,rows:a=3}){return i("div",{class:"loading-rows mt-4 mb-4",role:"status","aria-label":s,children:[i("span",{class:"sr",children:[s,"…"]}),i("div",{"aria-hidden":"true",children:Array.from({length:a},(d,r)=>i("div",{class:"loading-row l-v l-g3 b-sep",children:[i("i",{}),i("i",{})]},r))})]})}export{l as a};

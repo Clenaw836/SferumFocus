@@ -1,0 +1,4 @@
+import {useEffect,useState} from 'preact/hooks';
+import {sched} from '../lib/schedStore';
+import {provenance} from '../lib/mission';import {syncPending} from '../lib/syncState';import type {InitialState} from '../lib/types';
+export function DataProvenance({initial}:{initial:InitialState}){const [pending,setPending]=useState(syncPending()||sched.pending());useEffect(()=>{const update=()=>setPending(syncPending()||sched.pending());const off=sched.on(update);window.addEventListener('sf-pending-change',update);return()=>{off();window.removeEventListener('sf-pending-change',update);};},[]);return <div class="provenance l-h l-wrap l-g1 mt-3 mb-3" aria-label="Источник данных">{provenance(initial,pending).map(text=><span class="provenance-badge f-m f-2 b-tile mw-full" key={text}>{text}</span>)}</div>;}

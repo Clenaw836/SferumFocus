@@ -1,0 +1,41 @@
+{
+  "unicodes": "U+0020-007E,U+00A0-00FF,U+0131,U+0152-0153,U+02C6,U+02DA,U+02DC,U+0301,U+0400-045F,U+0490-0491,U+2010-2015,U+2018-201E,U+2022,U+2026,U+2030,U+2039-203A,U+20AC,U+20BD,U+2116,U+2122,U+2190-2193,U+2212,U+2248,U+2260,U+2264-2265",
+  "fonts": [
+    {
+      "file": "sf-read.7db44e21.woff",
+      "family": "SF Read",
+      "weight": "400 700",
+      "sha256": "7db44e2176d3d4fd1d8bdae2c86225088c0ec5e4113e4533dc327e32a874bd9a",
+      "bytes": 36412,
+      "origin": "Noto Sans 2.013 (google-noto-sans-vf-fonts 20240401)",
+      "source_sha256": "8b23d6341a12454e68e35c2c0917f0504104ded6aa3024d18e9d462da06fadd3",
+      "internal_family": "Noto Sans",
+      "license": "OFL-1.1",
+      "license_file": "OFL-NotoSans.txt"
+    },
+    {
+      "file": "sf-serif-regular.5b1c95eb.woff",
+      "family": "SF Serif",
+      "weight": "400",
+      "sha256": "5b1c95ebb7bfa2785a833be8d566b2175774f877dcabda4386fe57b96b42a45b",
+      "bytes": 40948,
+      "origin": "Liberation Serif 2.1.5 Regular",
+      "source_sha256": "8e23ee1f0b1cce384c9d3f7c39b9ccda198c4be8ce7f915a87efa80047be7eee",
+      "internal_family": "SF Focus Serif",
+      "license": "OFL-1.1",
+      "license_file": "OFL-SFFocusSerif.txt"
+    },
+    {
+      "file": "sf-serif-bold.e49f8c9b.woff",
+      "family": "SF Serif",
+      "weight": "700",
+      "sha256": "e49f8c9b73f51ec0a73dbc7fe6255e8bdbcd2b2a2d03ab43a9339a7891a57c87",
+      "bytes": 39376,
+      "origin": "Liberation Serif 2.1.5 Bold",
+      "source_sha256": "bfee656758feca24e3960a6d9c8df74b762d8059cc41499e8d101a44c0d2285b",
+      "internal_family": "SF Focus Serif",
+      "license": "OFL-1.1",
+      "license_file": "OFL-SFFocusSerif.txt"
+    }
+  ]
+}

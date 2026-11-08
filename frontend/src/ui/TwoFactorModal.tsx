@@ -1,0 +1,19 @@
+import {useEffect,useRef,useState} from 'preact/hooks';
+import {otpDigits} from '../lib/handoff';
+import {Sheet} from './Sheet';
+export function TwoFactorModal({open,mode,status,expires,error,onClose,onVerify,onConfirm,learner,onReopen,onResend,resendIn}:{onResend:()=>void;resendIn:number;open:boolean;mode:'sandbox'|'oauth'|'bridge';status:string;expires:number;error:string;onClose:()=>void;onVerify:(code:string)=>void;onConfirm:()=>void;learner?:{name:string;class_name:string;portal:string};onReopen:()=>void}){
+ const [digits,setDigits]=useState(['','','','','','']);const sent=useRef('');const refs=useRef<(HTMLInputElement|null)[]>([]);
+ useEffect(()=>{if(open){setDigits(['','','','','','']);sent.current='';}},[open]);
+ useEffect(()=>{if(resendIn===60){setDigits(['','','','','','']);sent.current='';}},[resendIn===60]);
+ useEffect(()=>{if(error){setDigits(['','','','','','']);sent.current='';}},[error]);
+ useEffect(()=>{const code=digits.join('');if(mode==='sandbox'&&code.length===6&&status==='2fa_required'&&sent.current!==code){sent.current=code;onVerify(code);}},[digits,status]);
+ const change=(i:number,value:string)=>{const clean=otpDigits(value);const d=[...digits];if(clean.length>1){clean.slice(0,6-i).split('').forEach((c,n)=>{d[i+n]=c;});}else d[i]=clean;setDigits(d);if(clean)refs.current[Math.min(5,i+clean.length)]?.focus();};
+ return <Sheet open={open} onClose={onClose} title={mode==='sandbox'?'Подтверждение входа (2FA) · Sandbox':mode==='bridge'?'Подтвердите свой дневник':'Ожидаем вход на портале'} eyebrow={mode==='sandbox'?'ДЕМО · НЕ ГОСУСЛУГИ':'БЕЗ ПАРОЛЯ ЕСИА В ПРИЛОЖЕНИИ'}>
+  <div class="handoff-modal">
+   <p role="timer">Осталось: {Math.floor(Math.max(0,expires)/60)}:{String(Math.max(0,expires)%60).padStart(2,'0')}</p>
+   {mode==='sandbox'?<><p>Откройте отдельное окно тестового провайдера. Это не SMS и не реальная авторизация Госуслуг; школьный дневник не изменится.</p><div class="twofactor-cells l-c6 l-g1 mt-4 mb-4" role="group" aria-label="Шестизначный тестовый код">{digits.map((d,i)=><input key={i} ref={el=>{refs.current[i]=el;}} aria-label={'Тестовая цифра '+(i+1)} inputMode="numeric" autoComplete={i===0?'one-time-code':'off'} value={d} disabled={expires<=0||status!=='2fa_required'} maxLength={6} onPaste={e=>{const value=e.clipboardData?.getData('text')||'';if(/^[0-9]{6}$/.test(value)){e.preventDefault();setDigits(value.split(''));refs.current[5]?.focus();}}} onInput={e=>change(i,e.currentTarget.value)} onKeyDown={e=>{if(e.key==='Backspace'&&!digits[i]&&i>0)refs.current[i-1]?.focus();}}/>)}</div><p>После шестой цифры тестовый код отправится автоматически. Максимум 5 попыток.</p><p>Код показан в тестовом окне провайдера, не отправлен по SMS.</p><button class="btn btn-secondary btn-block" disabled={resendIn>0||expires<=0||status!=='2fa_required'} onClick={onResend}>{resendIn>0?'Повторный код через 00:'+String(resendIn).padStart(2,'0'):'Отправить код повторно'}</button></>:mode==='bridge'?<><p>Проверьте, что портал вернул именно вашего ученика.</p>{learner?<div class="school-host l-v b-card mb-4"><strong>{learner.name||'Имя не передано'}</strong><span class="f-2">{learner.class_name}</span><span class="f-2">{learner.portal}</span><button class="btn btn-primary" disabled={expires<=0||status!=='awaiting_confirmation'} onClick={onConfirm}>Это мой дневник — подключить</button></div>:<p>Ожидаем передачу собственной сессии с выбранного портала.</p>}</>:<p>Введите пароль и настоящий код подтверждения только на официальном сайте. СферумФокус не запрашивает код ЕСИА. После callback статус обновится здесь.</p>}
+   {mode!=='bridge'&&<button class="btn btn-secondary btn-block" disabled={expires<=0} onClick={onReopen}>Открыть окно ещё раз</button>}
+   <button class="btn btn-ghost btn-block" onClick={onClose}>Отмена</button><p role="alert">{error}</p>{expires<=0&&<p>Время истекло. Закройте окно и начните заново.</p>}
+  </div>
+ </Sheet>;
+}
